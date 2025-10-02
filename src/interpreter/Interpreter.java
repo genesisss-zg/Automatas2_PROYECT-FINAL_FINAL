@@ -120,6 +120,16 @@ public class Interpreter implements Evaluator {
 
     @Override
     public Object evaluate(CallNode node) {
+        // Si la función es 'print', ejecuta como PrintNode
+            if (node.getFunctionName().equals("print")) {
+                if (node.getArguments().size() > 0) {
+                    Object value = evaluate(node.getArguments().get(0));
+                    System.out.println(value);
+                    return value;
+                }
+                return null;
+            }
+        
         FunctionNode function = functions.get(node.getFunctionName());
         if (function == null) {
             throw new RuntimeException("Función no encontrada: " + node.getFunctionName());
@@ -158,14 +168,19 @@ public class Interpreter implements Evaluator {
 
     @Override
     public Object evaluate(IdentifierNode node) {
+        String name = node.getName();
+        // Ignorar operadores y delimitadores
+        if (name.equals("+") || name.equals("-") || name.equals("*") || name.equals("/") || name.equals(";")) {
+            return null;
+        }
         // Buscar en scopes desde el más interno al más externo
         for (int i = scopeStack.size() - 1; i >= 0; i--) {
             Map<String, Object> scope = scopeStack.get(i);
-            if (scope.containsKey(node.getName())) {
-                return scope.get(node.getName());
+            if (scope.containsKey(name)) {
+                return scope.get(name);
             }
         }
-        throw new RuntimeException("Variable no definida: " + node.getName());
+        throw new RuntimeException("Variable no definida: " + name);
     }
 
     @Override

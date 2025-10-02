@@ -21,7 +21,7 @@ public class Lexer {
         keywords.put("else", TokenType.ELSE);
         keywords.put("while", TokenType.WHILE);
         keywords.put("return", TokenType.RETURN);
-        keywords.put("print", TokenType.PRINT);
+        //keywords.put("print", TokenType.PRINT);
         
         // Tipos de datos (agregados)
         keywords.put("int", TokenType.INT);

@@ -109,7 +109,7 @@ public class AnalizadorGUI1 extends JFrame {
             currentProgram = null;
         });
         
-        // Ejemplo de código por defecto
+        // Ejemplo de código por defectoo
         codeArea.setText("var x: int = 10;\nvar y: int = 5;\nvar resultado: int = x + y;\nprint(resultado);\n\nfunction saludar() {\n    print(\"¡Hola desde la función!\");\n}\n\nsaludar();");
     }
 

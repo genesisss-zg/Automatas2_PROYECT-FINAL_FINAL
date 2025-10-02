@@ -194,24 +194,38 @@ public class Parser {
     }
 
     private ASTNode parsePrimary() {
-        if (match(TokenType.NUMBER)) {
-            return new LiteralNode(currentToken.getLine(), currentToken.getLiteral());
+        System.out.println("Token actual: " + currentToken.getType() + " - " + currentToken.getLexeme());
+        if (check(TokenType.NUMBER)) {
+            Object value = currentToken.getLiteral();
+            int line = currentToken.getLine();
+            nextToken();
+            return new LiteralNode(line, value);
+            
         }
-        if (match(TokenType.STRING_LITERAL)) {
-            return new LiteralNode(currentToken.getLine(), currentToken.getLiteral());
+        System.out.println("Token actual: " + currentToken.getType() + " - " + currentToken.getLexeme());
+        if (check(TokenType.STRING_LITERAL)) {
+            Object value = currentToken.getLiteral();
+            int line = currentToken.getLine();
+            nextToken();
+            return new LiteralNode(line, value);
         }
-        if (match(TokenType.IDENTIFIER)) {
+        System.out.println("Token actual: " + currentToken.getType() + " - " + currentToken.getLexeme());
+        if (check(TokenType.IDENTIFIER)) {
+            String name = currentToken.getLexeme();
+            int line = currentToken.getLine();
+            nextToken();
+            System.out.println("Token actual: " + currentToken.getType() + " - " + currentToken.getLexeme());
             if (check(TokenType.LEFT_PAREN)) {
-                return parseFunctionCall(currentToken.getLexeme());
+                return parseFunctionCall(name);
             }
-            return new IdentifierNode(currentToken.getLine(), currentToken.getLexeme());
+            return new IdentifierNode(line, name);
         }
+        System.out.println("Token actual: " + currentToken.getType() + " - " + currentToken.getLexeme());
         if (match(TokenType.LEFT_PAREN)) {
             ASTNode expr = parseExpression();
             expect(TokenType.RIGHT_PAREN);
             return expr;
         }
-        
         throw new RuntimeException("Expresión inválida");
     }
 

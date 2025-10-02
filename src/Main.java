@@ -2,8 +2,8 @@ import gui.AnalizadorGUI1;
 
 public class Main {
     public static void main(String[] args) {
-        System.out.println("🚀 Iniciando Analizador de Código...");
-        System.out.println("📊 Cargando interfaz gráfica...");
+        System.out.println("Iniciando Analizador de Código...");
+        System.out.println("Cargando interfaz gráfica...");
         
         // Ejecutar la interfaz gráfica en el Event Dispatch Thread
         javax.swing.SwingUtilities.invokeLater(new Runnable() {
@@ -14,17 +14,17 @@ public class Main {
                         javax.swing.UIManager.getSystemLookAndFeelClassName()
                     );
                     
-                    System.out.println("✅ Look and feel configurado");
+                    System.out.println("Look and feel configurado");
                     
                     // Crear y mostrar la GUI
                     AnalizadorGUI1 gui = new AnalizadorGUI1();
                     gui.setVisible(true);
                     
-                    System.out.println("✅ Interfaz gráfica cargada correctamente");
-                    System.out.println("📝 Listo para analizar código");
+                    System.out.println("Interfaz gráfica cargada correctamente");
+                    System.out.println("Listo para analizar código");
                     
                 } catch (Exception e) {
-                    System.err.println("❌ Error al cargar la interfaz gráfica:");
+                    System.err.println("Error al cargar la interfaz gráfica:");
                     e.printStackTrace();
                     
                     // Fallback: mostrar mensaje de error

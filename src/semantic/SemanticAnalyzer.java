@@ -185,6 +185,9 @@ public class SemanticAnalyzer implements ASTVisitor {
     @Override
     public void visit(CallNode node) {
         String functionName = node.getFunctionName();
+            if (functionName.equals("print")) {
+            return;
+        }
         
         // Verificar que la función existe
         Symbol symbol = scopeManager.resolve(functionName);
@@ -215,7 +218,12 @@ public class SemanticAnalyzer implements ASTVisitor {
     @Override
     public void visit(IdentifierNode node) {
         String varName = node.getName();
-        
+
+        // Ignorar operadores y delimitadores
+        if (varName.equals("+") || varName.equals(";") || varName.equals("-") || varName.equals("*") || varName.equals("/") ) {
+            return;
+        }
+
         // Verificar que la variable existe
         Symbol symbol = scopeManager.resolve(varName);
         if (symbol == null) {
@@ -254,6 +262,7 @@ public class SemanticAnalyzer implements ASTVisitor {
         // Verificar que el valor a imprimir existe
         node.getValue().accept(this);
     }
+    
 
     public ManejadorErrores getManejadorErrores() {
         return manejadorErrores;
