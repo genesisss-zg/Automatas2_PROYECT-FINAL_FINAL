@@ -8,12 +8,15 @@ public class PrintNode extends ASTNode {
         this.value = value;
     }
 
-    public ASTNode getValue() {
-        return value;
-    }
+    public ASTNode getValue() { return value; }
 
     @Override
     public void accept(ASTVisitor visitor) {
         visitor.visit(this);
+    }
+    
+    @Override
+    public <T> T accept(ExpressionVisitor<T> visitor) {
+        return visitor.visit(this);
     }
 }

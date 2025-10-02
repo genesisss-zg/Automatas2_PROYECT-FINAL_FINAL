@@ -16,10 +16,9 @@ public class ScopeManager {
     }
 
     public void exitScope() {
-        if (scopes.size() <= 1) {
-            throw new IllegalStateException("No se puede salir del scope global");
+        if (scopes.size() > 1) {
+            scopes.pop();
         }
-        scopes.pop();
     }
 
     public Scope getCurrentScope() {
@@ -31,11 +30,29 @@ public class ScopeManager {
     }
 
     public Symbol resolve(String name) {
+        // No intentar resolver operadores o símbolos especiales
+        if (isOperatorOrSpecialSymbol(name)) {
+            return null; // Los operadores no son variables
+        }
         return scopes.peek().resolve(name);
     }
 
     public boolean containsSymbol(String name) {
+        if (isOperatorOrSpecialSymbol(name)) {
+            return false; // Los operadores no son variables
+        }
         return scopes.peek().containsSymbol(name);
+    }
+
+    private boolean isOperatorOrSpecialSymbol(String name) {
+        // Lista de operadores y símbolos que NO son variables
+        return name.equals("+") || name.equals("-") || name.equals("*") || 
+               name.equals("/") || name.equals("=") || name.equals("==") ||
+               name.equals("!=") || name.equals("<") || name.equals(">") ||
+               name.equals("<=") || name.equals(">=") || name.equals("&&") ||
+               name.equals("||") || name.equals("!") || name.equals(";") ||
+               name.equals(":") || name.equals(",") || name.equals("(") ||
+               name.equals(")") || name.equals("{") || name.equals("}");
     }
 
     public Scope getGlobalScope() {

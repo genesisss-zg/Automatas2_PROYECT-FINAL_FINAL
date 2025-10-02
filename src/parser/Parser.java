@@ -18,32 +18,28 @@ public class Parser {
 
     public ProgramNode parse() {
         ProgramNode program = new ProgramNode();
+        System.out.println("PARSER: Starting parsing");
         
         while (currentToken.getType() != TokenType.EOF) {
             try {
+                System.out.println("PARSER: Current token: " + currentToken.getType() + " - " + currentToken.getLexeme());
                 ASTNode declaration = parseDeclaration();
                 if (declaration != null) {
                     program.addDeclaration(declaration);
+                    System.out.println("PARSER: Declaration added: " + declaration.getClass().getSimpleName());
                 }
             } catch (Exception e) {
-                System.err.println("Error de parsing: " + e.getMessage());
+                System.err.println("PARSER ERROR: " + e.getMessage());
                 synchronize();
             }
         }
         
+        System.out.println("PARSER: Finished parsing");
         return program;
     }
 
-    
-    private boolean isTypeToken(TokenType type) {
-        return type == TokenType.INT || type == TokenType.FLOAT || 
-               type == TokenType.STRING || type == TokenType.BOOLEAN ||
-               type == TokenType.VOID;
-    }
-    
-
     private ASTNode parseDeclaration() {
-        if (currentToken.getType() == TokenType.FUNCTION) {
+        if (currentToken.getType() == TokenType.ENCHANT_FUNC) {
             return parseFunctionDeclaration();
         } else if (currentToken.getType() == TokenType.VAR) {
             return parseVariableDeclaration();
@@ -52,14 +48,29 @@ public class Parser {
     }
 
     private FunctionNode parseFunctionDeclaration() {
-        expect(TokenType.FUNCTION);
+        expect(TokenType.ENCHANT_FUNC);
         String functionName = expect(TokenType.IDENTIFIER).getLexeme();
         expect(TokenType.LEFT_PAREN);
         
         FunctionNode function = new FunctionNode(currentToken.getLine(), functionName, "void");
-        expect(TokenType.RIGHT_PAREN);
-        expect(TokenType.LEFT_BRACE);
         
+        // Parse parameters
+        if (!check(TokenType.RIGHT_PAREN)) {
+            do {
+                String paramName = expect(TokenType.IDENTIFIER).getLexeme();
+                function.addParameter(new IdentifierNode(currentToken.getLine(), paramName));
+            } while (match(TokenType.COMMA));
+        }
+        
+        expect(TokenType.RIGHT_PAREN);
+        
+        // Tipo de retorno opcional
+        String returnType = "void";
+        if (match(TokenType.COLON)) {
+            returnType = expect(TokenType.IDENTIFIER).getLexeme();
+        }
+        
+        expect(TokenType.CRAFTING_TABLE);
         BlockNode body = parseBlock();
         function.setBody(body);
         
@@ -68,66 +79,65 @@ public class Parser {
 
     private VariableDeclNode parseVariableDeclaration() {
         expect(TokenType.VAR);
-        
-        // Obtener nombre de la variable
         String varName = expect(TokenType.IDENTIFIER).getLexeme();
         
-        // Esperar dos puntos
-        expect(TokenType.COLON);
-        
-        // Obtener tipo (ahora es palabra reservada)
-        Token typeToken = currentToken;
-        if (isTypeToken(typeToken.getType())) {
-            nextToken();
-            String typeName = typeToken.getLexeme();
-            
-            ASTNode initialValue = null;
-            if (match(TokenType.ASSIGN)) {
-                initialValue = parseExpression();
-            }
-            
-            expect(TokenType.SEMICOLON);
-            return new VariableDeclNode(typeToken.getLine(), varName, typeName, initialValue);
-        } else {
-            throw new RuntimeException("Se esperaba tipo de dato, se encontró: " + typeToken.getType());
+        String typeName = "auto";
+        if (match(TokenType.COLON)) {
+            typeName = expect(TokenType.IDENTIFIER).getLexeme();
         }
+        
+        ASTNode initialValue = null;
+        if (match(TokenType.ASSIGN)) {
+            initialValue = parseExpression();
+        }
+        
+        // En MineCode, las declaraciones de variables pueden no terminar con ;
+        if (match(TokenType.SEMICOLON)) {
+            // Si hay ;, la consumimos, pero no es obligatoria
+        }
+        
+        return new VariableDeclNode(currentToken.getLine(), varName, typeName, initialValue);
     }
 
     private BlockNode parseBlock() {
         BlockNode block = new BlockNode(currentToken.getLine());
         
-        while (!check(TokenType.RIGHT_BRACE) && !check(TokenType.EOF)) {
+        while (!check(TokenType.END_PORTAL) && !check(TokenType.EOF)) {
             ASTNode stmt = parseStatement();
             if (stmt != null) {
                 block.addStatement(stmt);
+                System.out.println("PARSER: Statement added to block: " + stmt.getClass().getSimpleName());
             }
         }
         
-        expect(TokenType.RIGHT_BRACE);
+        expect(TokenType.END_PORTAL);
         return block;
     }
 
     private ASTNode parseStatement() {
-        if (check(TokenType.IF)) return parseIfStatement();
-        if (check(TokenType.WHILE)) return parseWhileStatement();
-        if (check(TokenType.RETURN)) return parseReturnStatement();
-        if (check(TokenType.LEFT_BRACE)) return parseBlock();
+        if (check(TokenType.REDSTONE_IF)) return parseIfStatement();
+        if (check(TokenType.PISTON_LOOP)) return parseWhileStatement();
+        if (check(TokenType.NETHER_RETURN)) return parseReturnStatement();
+        if (check(TokenType.CRAFTING_TABLE)) return parseBlock();
+        if (check(TokenType.PRINT)) return parsePrintStatement();
+        
         if (check(TokenType.IDENTIFIER) && peekToken.getType() == TokenType.ASSIGN) {
             return parseAssignment();
         }
+        
         return parseExpressionStatement();
     }
 
     private ASTNode parseIfStatement() {
-        expect(TokenType.IF);
-        expect(TokenType.LEFT_PAREN);
+        expect(TokenType.REDSTONE_IF);
         ASTNode condition = parseExpression();
-        expect(TokenType.RIGHT_PAREN);
         
+        expect(TokenType.CRAFTING_TABLE);
         BlockNode thenBlock = parseBlock();
         IfNode ifNode = new IfNode(currentToken.getLine(), condition, thenBlock);
         
-        if (match(TokenType.ELSE)) {
+        if (match(TokenType.SLIME_ELSE)) {
+            expect(TokenType.CRAFTING_TABLE);
             ifNode.setElseBlock(parseBlock());
         }
         
@@ -135,48 +145,71 @@ public class Parser {
     }
 
     private ASTNode parseWhileStatement() {
-        expect(TokenType.WHILE);
-        expect(TokenType.LEFT_PAREN);
+        expect(TokenType.PISTON_LOOP);
         ASTNode condition = parseExpression();
-        expect(TokenType.RIGHT_PAREN);
         
+        expect(TokenType.CRAFTING_TABLE);
         BlockNode body = parseBlock();
         return new WhileNode(currentToken.getLine(), condition, body);
     }
 
     private ASTNode parseReturnStatement() {
-        expect(TokenType.RETURN);
+        expect(TokenType.NETHER_RETURN);
         ASTNode value = null;
-        if (!check(TokenType.SEMICOLON)) {
+        if (!check(TokenType.SEMICOLON) && !check(TokenType.END_PORTAL) && !check(TokenType.CRAFTING_TABLE)) {
             value = parseExpression();
         }
-        expect(TokenType.SEMICOLON);
+        
+        // En MineCode, return puede o no terminar con ;
+        if (match(TokenType.SEMICOLON)) {
+            // Si hay ;, la consumimos
+        }
+        
         return new ReturnNode(currentToken.getLine(), value);
+    }
+
+    private ASTNode parsePrintStatement() {
+        expect(TokenType.PRINT);
+        expect(TokenType.LEFT_PAREN);
+        ASTNode value = parseExpression();
+        expect(TokenType.RIGHT_PAREN);
+        
+        // En MineCode, print puede o no terminar con ;
+        if (match(TokenType.SEMICOLON)) {
+            // Si hay ;, la consumimos, pero no es obligatoria
+        }
+        
+        return new PrintNode(currentToken.getLine(), value);
     }
 
     private ASTNode parseAssignment() {
         String varName = expect(TokenType.IDENTIFIER).getLexeme();
         expect(TokenType.ASSIGN);
         ASTNode value = parseExpression();
-        expect(TokenType.SEMICOLON);
+        
+        // En MineCode, las asignaciones pueden o no terminar con ;
+        if (match(TokenType.SEMICOLON)) {
+            // Si hay ;, la consumimos, pero no es obligatoria
+        }
+        
         return new AssignmentNode(currentToken.getLine(), varName, value);
     }
 
     private ASTNode parseExpressionStatement() {
         ASTNode expr = parseExpression();
-        expect(TokenType.SEMICOLON);
+        
+        // En MineCode, las expresiones pueden o no terminar con ;
+        if (match(TokenType.SEMICOLON)) {
+            // Si hay ;, la consumimos, pero no es obligatoria
+        }
+        
         return new ExpressionStatementNode(currentToken.getLine(), expr);
     }
 
     private ASTNode parseExpression() {
-        try {
-            return parseBinaryExpression(0);
-        } catch (Exception e) {
-            // Recuperación de errores: sincronizar hasta el siguiente statement
-            synchronize();
-            throw new RuntimeException("Expresión inválida: " + e.getMessage());
-        }
-}
+        return parseBinaryExpression(0);
+    }
+
     private ASTNode parseBinaryExpression(int precedence) {
         ASTNode left = parsePrimary();
         
@@ -200,11 +233,18 @@ public class Parser {
         if (match(TokenType.STRING_LITERAL)) {
             return new LiteralNode(currentToken.getLine(), currentToken.getLiteral());
         }
+        if (match(TokenType.TORCH_ON)) {
+            return new LiteralNode(currentToken.getLine(), true);
+        }
+        if (match(TokenType.TORCH_OFF)) {
+            return new LiteralNode(currentToken.getLine(), false);
+        }
         if (match(TokenType.IDENTIFIER)) {
+            String identifierName = currentToken.getLexeme();
             if (check(TokenType.LEFT_PAREN)) {
-                return parseFunctionCall(currentToken.getLexeme());
+                return parseFunctionCall(identifierName);
             }
-            return new IdentifierNode(currentToken.getLine(), currentToken.getLexeme());
+            return new IdentifierNode(currentToken.getLine(), identifierName);
         }
         if (match(TokenType.LEFT_PAREN)) {
             ASTNode expr = parseExpression();
@@ -212,7 +252,8 @@ public class Parser {
             return expr;
         }
         
-        throw new RuntimeException("Expresión inválida");
+        throw new RuntimeException("Expresión inválida en línea " + currentToken.getLine() + 
+                                 ", token: " + currentToken.getType() + " '" + currentToken.getLexeme() + "'");
     }
 
     private ASTNode parseFunctionCall(String functionName) {
@@ -242,10 +283,11 @@ public class Parser {
     }
 
     private Token expect(TokenType type) {
-        if (currentToken.getType() == type) {
+        if (check(type)) {
             return nextToken();
         }
-        throw new RuntimeException("Se esperaba " + type + ", se encontró " + currentToken.getType());
+        throw new RuntimeException("Se esperaba " + type + ", se encontró " + currentToken.getType() + 
+                                 " '" + currentToken.getLexeme() + "' en línea " + currentToken.getLine());
     }
 
     private boolean check(TokenType type) {
@@ -269,17 +311,25 @@ public class Parser {
 
     private void synchronize() {
         while (currentToken.getType() != TokenType.EOF) {
+            // Puntos de sincronización para MineCode
             if (currentToken.getType() == TokenType.SEMICOLON) {
                 nextToken();
                 return;
             }
             
-            // Si encontramos el inicio de una nueva declaración, paramos
-            if (currentToken.getType() == TokenType.FUNCTION || 
+            // Nuevos puntos de sincronización para MineCode
+            if (currentToken.getType() == TokenType.END_PORTAL ||
+                currentToken.getType() == TokenType.CRAFTING_TABLE) {
+                return;
+            }
+            
+            // Inicios de declaración
+            if (currentToken.getType() == TokenType.ENCHANT_FUNC || 
                 currentToken.getType() == TokenType.VAR ||
-                currentToken.getType() == TokenType.IF ||
-                currentToken.getType() == TokenType.WHILE ||
-                currentToken.getType() == TokenType.RETURN) {
+                currentToken.getType() == TokenType.REDSTONE_IF ||
+                currentToken.getType() == TokenType.PISTON_LOOP ||
+                currentToken.getType() == TokenType.NETHER_RETURN ||
+                currentToken.getType() == TokenType.PRINT) {
                 return;
             }
             

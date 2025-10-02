@@ -5,60 +5,50 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Stack;
 
-public class Interpreter implements Evaluator {
+public class Interpreter implements ExpressionVisitor<Object> {
     private Map<String, Object> variables;
     private Map<String, FunctionNode> functions;
     private Stack<Map<String, Object>> scopeStack;
-    private int executionDepth;
-    private static final int MAX_EXECUTION_DEPTH = 1000;
-
+    
     public Interpreter() {
         this.variables = new HashMap<>();
         this.functions = new HashMap<>();
         this.scopeStack = new Stack<>();
         this.scopeStack.push(new HashMap<>()); // Scope global
-        this.executionDepth = 0;
     }
 
     public void interpret(ProgramNode program) {
-        // Registrar funciones primero
-        for (ASTNode node : program.getDeclarations()) {
-            if (node instanceof FunctionNode) {
-                FunctionNode func = (FunctionNode) node;
-                functions.put(func.getFunctionName(), func);
+        try {
+            System.out.println("🔹 INTERPRETER: Iniciando interpretación");
+            System.out.println("🔹 Número de declaraciones: " + program.getDeclarations().size());
+            
+            // Registrar funciones primero
+            for (ASTNode node : program.getDeclarations()) {
+                if (node instanceof FunctionNode) {
+                    FunctionNode func = (FunctionNode) node;
+                    functions.put(func.getFunctionName(), func);
+                    System.out.println("📋 Función registrada: " + func.getFunctionName());
+                }
             }
-        }
 
-        // Ejecutar código global
-        for (ASTNode node : program.getDeclarations()) {
-            if (!(node instanceof FunctionNode)) {
-                evaluate(node);
+            // Ejecutar código global
+            System.out.println("🔹 Ejecutando código global...");
+            for (ASTNode node : program.getDeclarations()) {
+                if (!(node instanceof FunctionNode)) {
+                    System.out.println("➡️  Ejecutando: " + node.getClass().getSimpleName());
+                    Object result = node.accept(this);
+                    System.out.println("📊 Resultado: " + result);
+                }
             }
-        }
-    }
-
-    public Object evaluate(ASTNode node) {
-        if (node instanceof AssignmentNode) return evaluate((AssignmentNode) node);
-        if (node instanceof BinaryExpression) return evaluate((BinaryExpression) node);
-        if (node instanceof BlockNode) return evaluate((BlockNode) node);
-        if (node instanceof CallNode) return evaluate((CallNode) node);
-        if (node instanceof ExpressionStatementNode) return evaluate((ExpressionStatementNode) node);
-        if (node instanceof FunctionNode) return evaluate((FunctionNode) node);
-        if (node instanceof IdentifierNode) return evaluate((IdentifierNode) node);
-        if (node instanceof IfNode) return evaluate((IfNode) node);
-        if (node instanceof LiteralNode) return evaluate((LiteralNode) node);
-        if (node instanceof PrintNode) return evaluate((PrintNode) node);
-        if (node instanceof ProgramNode) return evaluate((ProgramNode) node);
-        if (node instanceof ReturnNode) return evaluate((ReturnNode) node);
-        if (node instanceof TypeNode) return evaluate((TypeNode) node);
-        if (node instanceof VariableDeclNode) return evaluate((VariableDeclNode) node);
-        if (node instanceof WhileNode) return evaluate((WhileNode) node);
-        return null;
-    }
-
-    private void checkExecutionDepth() {
-        if (executionDepth++ > MAX_EXECUTION_DEPTH) {
-            throw new RuntimeException("Profundidad de ejecución excedida");
+            
+            System.out.println("✅ INTERPRETER: Interpretación completada");
+            
+        } catch (ReturnException e) {
+            System.out.println("↩️  Return encontrado: " + e.getValue());
+        } catch (Exception e) {
+            System.err.println("❌ ERROR EN INTERPRETER: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
     }
 
@@ -69,171 +59,227 @@ public class Interpreter implements Evaluator {
         return value != null;
     }
 
+    // Métodos de ExpressionVisitor
     @Override
-    public Object evaluate(AssignmentNode node) {
-        Object value = evaluate(node.getValue());
+    public Object visit(AssignmentNode node) {
+        Object value = node.getValue().accept(this);
         scopeStack.peek().put(node.getVariableName(), value);
+        System.out.println("💾 Asignación: " + node.getVariableName() + " = " + value);
         return value;
     }
 
     @Override
-    public Object evaluate(BinaryExpression node) {
-        Object left = evaluate(node.getLeft());
-        Object right = evaluate(node.getRight());
+    public Object visit(BinaryExpression node) {
+        Object left = node.getLeft().accept(this);
+        Object right = node.getRight().accept(this);
 
-        // Verificar tipos
-        if (!(left instanceof Number) || !(right instanceof Number)) {
-            throw new RuntimeException("Operación numérica inválida con tipos no numéricos");
-        }
-
-        double leftNum = ((Number) left).doubleValue();
-        double rightNum = ((Number) right).doubleValue();
+        System.out.println("🔢 Operación: " + left + " " + node.getOperator() + " " + right);
 
         switch (node.getOperator()) {
-            case "+": return leftNum + rightNum;
-            case "-": return leftNum - rightNum;
-            case "*": return leftNum * rightNum;
+            case "+": 
+                if (left instanceof Number && right instanceof Number) {
+                    return ((Number) left).doubleValue() + ((Number) right).doubleValue();
+                } else {
+                    return left.toString() + right.toString();
+                }
+            case "-": 
+                return ((Number) left).doubleValue() - ((Number) right).doubleValue();
+            case "*": 
+                return ((Number) left).doubleValue() * ((Number) right).doubleValue();
             case "/": 
-                if (rightNum == 0) throw new RuntimeException("División por cero");
-                return leftNum / rightNum;
-            case "<": return leftNum < rightNum;
-            case ">": return leftNum > rightNum;
-            case "<=": return leftNum <= rightNum;
-            case ">=": return leftNum >= rightNum;
-            case "==": return left.equals(right);
-            case "!=": return !left.equals(right);
+                double divisor = ((Number) right).doubleValue();
+                if (divisor == 0) throw new RuntimeException("División por cero");
+                return ((Number) left).doubleValue() / divisor;
+            case "==": 
+                return left.equals(right);
+            case "!=": 
+                return !left.equals(right);
+            case "<": 
+                return ((Number) left).doubleValue() < ((Number) right).doubleValue();
+            case ">": 
+                return ((Number) left).doubleValue() > ((Number) right).doubleValue();
+            case "<=": 
+                return ((Number) left).doubleValue() <= ((Number) right).doubleValue();
+            case ">=": 
+                return ((Number) left).doubleValue() >= ((Number) right).doubleValue();
+            case "&&": 
+                return isTruthy(left) && isTruthy(right);
+            case "||": 
+                return isTruthy(left) || isTruthy(right);
             default: 
                 throw new RuntimeException("Operador no soportado: " + node.getOperator());
         }
     }
 
     @Override
-    public Object evaluate(BlockNode node) {
+    public Object visit(BlockNode node) {
+        System.out.println("🔲 Iniciando bloque");
         scopeStack.push(new HashMap<>());
         Object result = null;
+        
         for (ASTNode stmt : node.getStatements()) {
-            result = evaluate(stmt);
+            result = stmt.accept(this);
         }
+        
         scopeStack.pop();
+        System.out.println("🔲 Bloque finalizado");
         return result;
     }
 
     @Override
-    public Object evaluate(CallNode node) {
+    public Object visit(CallNode node) {
         FunctionNode function = functions.get(node.getFunctionName());
         if (function == null) {
             throw new RuntimeException("Función no encontrada: " + node.getFunctionName());
         }
 
-        // Guardar scope actual
-        Map<String, Object> currentScope = scopeStack.peek();
-        
+        System.out.println("📞 Llamando función: " + node.getFunctionName());
+
+        // Evaluar argumentos
+        Object[] args = new Object[node.getArguments().size()];
+        for (int i = 0; i < node.getArguments().size(); i++) {
+            args[i] = node.getArguments().get(i).accept(this);
+            System.out.println("   Argumento " + i + ": " + args[i]);
+        }
+
         // Crear nuevo scope para la función
         scopeStack.push(new HashMap<>());
         
         // Ejecutar cuerpo de la función
         Object result = null;
-        if (function.getBody() != null) {
-            result = evaluate(function.getBody());
+        try {
+            if (function.getBody() != null) {
+                result = function.getBody().accept(this);
+            }
+        } catch (ReturnException e) {
+            result = e.getValue();
+            System.out.println("↩️  Función retornó: " + result);
         }
         
-        // Restaurar scope
         scopeStack.pop();
-        scopeStack.push(currentScope);
-        
         return result;
     }
 
     @Override
-    public Object evaluate(ExpressionStatementNode node) {
-        return evaluate(node.getExpression());
+    public Object visit(ExpressionStatementNode node) {
+        return node.getExpression().accept(this);
     }
 
     @Override
-    public Object evaluate(FunctionNode node) {
-        // Las funciones se registran pero no se ejecutan directamente
+    public Object visit(FunctionNode node) {
+        // Solo registrar la función, no ejecutarla aquí
         functions.put(node.getFunctionName(), node);
+        System.out.println("📋 Registrando función: " + node.getFunctionName());
         return null;
     }
 
     @Override
-    public Object evaluate(IdentifierNode node) {
+    public Object visit(IdentifierNode node) {
         // Buscar en scopes desde el más interno al más externo
         for (int i = scopeStack.size() - 1; i >= 0; i--) {
             Map<String, Object> scope = scopeStack.get(i);
             if (scope.containsKey(node.getName())) {
-                return scope.get(node.getName());
+                Object value = scope.get(node.getName());
+                System.out.println("🔍 Variable encontrada: " + node.getName() + " = " + value);
+                return value;
             }
         }
         throw new RuntimeException("Variable no definida: " + node.getName());
     }
 
     @Override
-    public Object evaluate(IfNode node) {
-        Object condition = evaluate(node.getCondition());
+    public Object visit(IfNode node) {
+        Object condition = node.getCondition().accept(this);
+        System.out.println("❓ Condición if: " + condition + " (truthy: " + isTruthy(condition) + ")");
+        
         if (isTruthy(condition)) {
-            return evaluate(node.getThenBlock());
+            System.out.println("✅ Ejecutando bloque then");
+            return node.getThenBlock().accept(this);
         } else if (node.getElseBlock() != null) {
-            return evaluate(node.getElseBlock());
+            System.out.println("⏭️  Ejecutando bloque else");
+            return node.getElseBlock().accept(this);
         }
         return null;
     }
 
     @Override
-    public Object evaluate(LiteralNode node) {
+    public Object visit(LiteralNode node) {
+        System.out.println("📌 Literal: " + node.getValue());
         return node.getValue();
     }
 
     @Override
-    public Object evaluate(PrintNode node) {
-        Object value = evaluate(node.getValue());
-        System.out.println(value);
+    public Object visit(PrintNode node) {
+        Object value = node.getValue().accept(this);
+        System.out.println("🖨️  PRINT EJECUTADO: " + value);
         return value;
     }
 
     @Override
-    public Object evaluate(ProgramNode node) {
+    public Object visit(ProgramNode node) {
+        System.out.println("🚀 Iniciando programa");
         Object result = null;
         for (ASTNode declaration : node.getDeclarations()) {
-            result = evaluate(declaration);
+            result = declaration.accept(this);
         }
+        System.out.println("🏁 Programa finalizado");
         return result;
     }
 
     @Override
-    public Object evaluate(ReturnNode node) {
-        Object value = node.getValue() != null ? evaluate(node.getValue()) : null;
+    public Object visit(ReturnNode node) {
+        Object value = null;
+        if (node.getValue() != null) {
+            value = node.getValue().accept(this);
+        }
+        System.out.println("↩️  Ejecutando return: " + value);
         throw new ReturnException(value);
     }
 
     @Override
-    public Object evaluate(TypeNode node) {
+    public Object visit(TypeNode node) {
+        // Los TypeNode no producen valor en ejecución
         return null;
     }
 
     @Override
-    public Object evaluate(VariableDeclNode node) {
+    public Object visit(VariableDeclNode node) {
         Object value = null;
         if (node.getInitialValue() != null) {
-            value = evaluate(node.getInitialValue());
+            value = node.getInitialValue().accept(this);
+            System.out.println("📦 Declarando variable: " + node.getVariableName() + " = " + value);
+        } else {
+            System.out.println("📦 Declarando variable: " + node.getVariableName() + " = null");
         }
         scopeStack.peek().put(node.getVariableName(), value);
         return value;
     }
 
     @Override
-    public Object evaluate(WhileNode node) {
+    public Object visit(WhileNode node) {
+        System.out.println("🔁 Iniciando while");
         Object result = null;
+        int iteration = 0;
+        
         while (true) {
-            Object condition = evaluate(node.getCondition());
+            iteration++;
+            Object condition = node.getCondition().accept(this);
+            System.out.println("🔄 Iteración " + iteration + " - Condición: " + condition);
+            
             if (!isTruthy(condition)) {
+                System.out.println("⏹️  Condición falsa, terminando while");
                 break;
             }
-            result = evaluate(node.getBody());
             
-            // Control de profundidad para bucles infinitos
-            checkExecutionDepth();
+            result = node.getBody().accept(this);
+            
+            // Prevención de bucles infinitos
+            if (iteration > 1000) {
+                throw new RuntimeException("Bucle while posiblemente infinito");
+            }
         }
+        
+        System.out.println("🔁 While finalizado");
         return result;
     }
 

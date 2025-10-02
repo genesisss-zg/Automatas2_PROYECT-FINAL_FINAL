@@ -14,4 +14,9 @@ public class ExpressionStatementNode extends ASTNode {
     public void accept(ASTVisitor visitor) {
         visitor.visit(this);
     }
+    
+    @Override
+    public <T> T accept(ExpressionVisitor<T> visitor) {
+        return visitor.visit(this);
+    }
 }

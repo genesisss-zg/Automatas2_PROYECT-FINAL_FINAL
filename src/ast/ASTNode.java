@@ -13,8 +13,8 @@ public abstract class ASTNode {
 
     public abstract void accept(ASTVisitor visitor);
     
-    // Nuevo método para expression visitor
-    public Object accept(ExpressionVisitor visitor) {
+    // Nuevo método para el expression visitor
+    public <T> T accept(ExpressionVisitor<T> visitor) {
         return null;
     }
 }

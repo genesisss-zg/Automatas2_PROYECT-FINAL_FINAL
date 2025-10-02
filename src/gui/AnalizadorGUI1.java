@@ -4,15 +4,16 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import lexer.Lexer;
+import lexer.Token;
+import lexer.TokenType;
 import parser.Parser;
 import ast.ProgramNode;
 import semantic.SemanticAnalyzer;
-import interpreter.Interpreter; // Importar el intérprete
+import interpreter.Interpreter;
 import util.ManejadorErrores;
 import util.ErrorSemantico;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import lexer.LanguageDetector;
 
 public class AnalizadorGUI1 extends JFrame {
     private JTextArea codeArea;
@@ -21,10 +22,12 @@ public class AnalizadorGUI1 extends JFrame {
     private JButton clearButton;
     private JButton runButton;
     private JLabel statusLabel;
-    private ProgramNode currentProgram; // Guardar el programa analizado
+    private JLabel languageLabel;
+    private ProgramNode currentProgram;
+    private boolean isMineCode = false;
 
     public AnalizadorGUI1() {
-        setTitle("Analizador de Código - Compilador");
+        setTitle("Analizador de Código - Compilador MineCode");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(900, 700);
         setLocationRelativeTo(null);
@@ -49,10 +52,9 @@ public class AnalizadorGUI1 extends JFrame {
         resultArea.setBorder(BorderFactory.createTitledBorder("Resultados del Análisis"));
         resultArea.setEditable(false);
         resultArea.setBackground(new Color(240, 240, 240));
-        resultArea.setForeground(new Color(0, 0, 139));
         
         // Botones
-        analyzeButton = new JButton("🔍 Analizar");
+        analyzeButton = new JButton("🔍 Analizar Código");
         analyzeButton.setToolTipText("Analizar código (Léxico, Sintáctico, Semántico)");
         
         runButton = new JButton("▶️ Ejecutar");
@@ -62,9 +64,13 @@ public class AnalizadorGUI1 extends JFrame {
         clearButton = new JButton("🧹 Limpiar");
         clearButton.setToolTipText("Limpiar áreas de texto");
         
-        // Etiqueta de estado
-        statusLabel = new JLabel("Listo");
+        // Etiquetas
+        statusLabel = new JLabel("Listo para analizar código MineCode");
         statusLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        
+        languageLabel = new JLabel("Lenguaje: Detectando...");
+        languageLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        languageLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
     }
 
     private void layoutComponents() {
@@ -73,13 +79,18 @@ public class AnalizadorGUI1 extends JFrame {
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
+        // Panel superior con información del lenguaje
+        JPanel infoPanel = new JPanel(new BorderLayout());
+        infoPanel.add(languageLabel, BorderLayout.WEST);
+        mainPanel.add(infoPanel, BorderLayout.NORTH);
+        
         JScrollPane codeScroll = new JScrollPane(codeArea);
-        codeScroll.setPreferredSize(new Dimension(0, 350));
-        mainPanel.add(codeScroll, BorderLayout.NORTH);
+        codeScroll.setPreferredSize(new Dimension(0, 300));
+        mainPanel.add(codeScroll, BorderLayout.CENTER);
         
         JScrollPane resultScroll = new JScrollPane(resultArea);
-        resultScroll.setPreferredSize(new Dimension(0, 250));
-        mainPanel.add(resultScroll, BorderLayout.CENTER);
+        resultScroll.setPreferredSize(new Dimension(0, 200));
+        mainPanel.add(resultScroll, BorderLayout.SOUTH);
         
         JPanel southPanel = new JPanel(new BorderLayout(5, 5));
         
@@ -98,79 +109,197 @@ public class AnalizadorGUI1 extends JFrame {
 
     private void setupEvents() {
         analyzeButton.addActionListener(e -> analyzeCode());
-        
         runButton.addActionListener(e -> runCode());
         
         clearButton.addActionListener(e -> {
             codeArea.setText("");
             resultArea.setText("");
             statusLabel.setText("Áreas limpiadas");
+            languageLabel.setText("Lenguaje: Detectando...");
             runButton.setEnabled(false);
             currentProgram = null;
+            isMineCode = false;
         });
         
-        // Ejemplo de código por defecto
-        codeArea.setText("var x: int = 10;\nvar y: int = 5;\nvar resultado: int = x + y;\nprint(resultado);\n\nfunction saludar() {\n    print(\"¡Hola desde la función!\");\n}\n\nsaludar();");
+        // Detectar cambios en el código para identificar el lenguaje
+        codeArea.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { detectLanguage(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { detectLanguage(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { detectLanguage(); }
+        });
+        
+        // Código de ejemplo MineCode
+        codeArea.setText("enchant_func main() crafting_table\n" +
+                        "    x -> 10\n" +
+                        "    redstone_if x -> 10 crafting_table\n" +
+                        "        print(\"x es 10\")\n" +
+                        "    slime_disc crafting_table\n" +
+                        "        print(\"x no es 10\")\n" +
+                        "    end_portal\n" +
+                        "    print(\"Programa completado\")\n" +
+                        "end_portal");
     }
 
-    private void analyzeCode() {
-        String sourceCode = codeArea.getText().trim();
-        if (sourceCode.isEmpty()) {
-            showResult("Por favor, ingrese código para analizar.", Color.RED);
-            return;
-        }
-        
-        try {
-            setStatus("Analizando...", Color.BLUE);
-            resultArea.setText(""); // Limpiar resultados anteriores
-            
-            long startTime = System.currentTimeMillis();
-            
-            // 1. Análisis Léxico
-            setStatus("Realizando análisis léxico...", Color.BLUE);
-            Lexer lexer = new Lexer(sourceCode);
-            resultArea.setText("✓ Análisis léxico completado\n");
-            
-            // 2. Análisis Sintáctico
-            setStatus("Realizando análisis sintáctico...", Color.BLUE);
-            Parser parser = new Parser(lexer);
-            currentProgram = parser.parse();
-            resultArea.append("✓ Análisis sintáctico completado\n");
-            
-            long parseTime = System.currentTimeMillis();
-            
-            // 3. Análisis Semántico
-            setStatus("Realizando análisis semántico...", Color.BLUE);
-            SemanticAnalyzer semanticAnalyzer = new SemanticAnalyzer();
-            semanticAnalyzer.analyze(currentProgram);
-            
-            ManejadorErrores errores = semanticAnalyzer.getManejadorErrores();
-            
-            long semanticTime = System.currentTimeMillis();
-            
-            if (errores.hayErrores()) {
-                resultArea.append("\n✗ Se encontraron " + errores.getCantidadErrores() + " errores semánticos:\n");
-                for (ErrorSemantico error : errores.getErrores()) {
-                    resultArea.append("• Línea " + error.getLinea() + ": " + error.getMensaje() + "\n");
-                }
-                resultArea.append("\n❌ No se puede ejecutar debido a errores");
-                runButton.setEnabled(false);
-                setStatus("Análisis completado con errores", Color.RED);
-            } else {
-                resultArea.append("✓ Análisis semántico completado sin errores\n");
-                resultArea.append("✓ Tiempo de análisis: " + (semanticTime - startTime) + "ms\n");
-                resultArea.append("\n✅ Código listo para ejecutar");
-                runButton.setEnabled(true);
-                setStatus("Análisis exitoso - Listo para ejecutar", new Color(0, 100, 0));
-            }
-            
-        } catch (Exception ex) {
-            showResult("❌ Error durante el análisis: " + ex.getMessage(), Color.RED);
-            ex.printStackTrace();
-            runButton.setEnabled(false);
-            currentProgram = null;
+    private void detectLanguage() {
+        String code = codeArea.getText();
+        if (code.contains("enchant_func") || code.contains("redstone_if") || 
+            code.contains("crafting_table") || code.contains("->")) {
+            isMineCode = true;
+            languageLabel.setText("Lenguaje: MineCode ✅");
+            languageLabel.setForeground(new Color(0, 100, 0));
+        } else {
+            isMineCode = false;
+            languageLabel.setText("Lenguaje: Original");
+            languageLabel.setForeground(Color.BLUE);
         }
     }
+
+        private void analyzeCode() {
+            String sourceCode = codeArea.getText().trim();
+            if (sourceCode.isEmpty()) {
+                showResult("Por favor, ingrese código para analizar.", Color.RED);
+                return;
+            }
+            
+            try {
+                resultArea.setText("");
+                resultArea.setForeground(Color.BLACK);
+                
+                // Detectar lenguaje automáticamente
+                detectLanguage();
+                
+                StringBuilder result = new StringBuilder();
+                result.append("=== ANÁLISIS DE CÓDIGO MINECODE ===\n\n");
+                
+                // 1. ANÁLISIS LÉXICO
+                setStatus("Realizando análisis léxico...", Color.BLUE);
+                result.append("📖 ANÁLISIS LÉXICO\n");
+                result.append("------------------\n");
+                
+                Lexer lexer = new Lexer(sourceCode);
+                ManejadorErrores erroresTotales = new ManejadorErrores();
+                int tokenCount = 0;
+                boolean hasLexicalErrors = false;
+                
+                try {
+                    Token token;
+                    do {
+                        token = lexer.nextToken();
+                        if (token.getType() == TokenType.ERROR) {
+                            result.append("❌ Error léxico: '").append(token.getLexeme()).append("' en línea ").append(token.getLine()).append("\n");
+                            hasLexicalErrors = true;
+                            erroresTotales.agregarError(token.getLine(), "Token no reconocido: " + token.getLexeme(), "Léxico");
+                        } else if (token.getType() != TokenType.EOF) {
+                            tokenCount++;
+                            // Mostrar solo algunos tokens para no saturar
+                            if (tokenCount <= 20) {
+                                result.append("   ").append(token.getType()).append(" -> '").append(token.getLexeme()).append("'\n");
+                            }
+                        }
+                    } while (token.getType() != TokenType.EOF);
+                    
+                    if (tokenCount > 20) {
+                        result.append("   ... y ").append(tokenCount - 20).append(" tokens más\n");
+                    }
+                    
+                    if (hasLexicalErrors) {
+                        result.append("❌ Se encontraron errores léxicos\n\n");
+                    } else {
+                        result.append("✅ Tokens reconocidos: ").append(tokenCount).append("\n");
+                        result.append("✅ Análisis léxico exitoso\n\n");
+                    }
+                    
+                } catch (Exception lexError) {
+                    result.append("❌ Error en análisis léxico: ").append(lexError.getMessage()).append("\n\n");
+                    erroresTotales.agregarError(0, "Error léxico: " + lexError.getMessage(), "Léxico");
+                }
+                
+                // Si hay errores léxicos, detenerse aquí
+                if (hasLexicalErrors) {
+                    result.append("⏹️  Análisis detenido por errores léxicos\n");
+                    resultArea.setText(result.toString());
+                    runButton.setEnabled(false);
+                    setStatus("Análisis fallido - Errores léxicos", Color.RED);
+                    return;
+                }
+                
+                // 2. ANÁLISIS SINTÁCTICO
+                setStatus("Realizando análisis sintáctico...", Color.BLUE);
+                result.append("📝 ANÁLISIS SINTÁCTICO\n");
+                result.append("----------------------\n");
+                
+                ProgramNode program = null;
+                try {
+                    Lexer lexerForParser = new Lexer(sourceCode);
+                    Parser parser = new Parser(lexerForParser);
+                    program = parser.parse();
+                    result.append("✅ Estructura sintáctica válida\n");
+                    result.append("✅ Declaraciones encontradas: ").append(program.getDeclarations().size()).append("\n\n");
+                    
+                } catch (Exception parseError) {
+                    result.append("❌ Error sintáctico: ").append(parseError.getMessage()).append("\n\n");
+                    erroresTotales.agregarError(0, "Error sintáctico: " + parseError.getMessage(), "Sintáctico");
+                    program = null;
+                }
+                
+                // 3. ANÁLISIS SEMÁNTICO (solo si no hay errores sintácticos)
+                if (program != null) {
+                    result.append("🔍 ANÁLISIS SEMÁNTICO\n");
+                    result.append("----------------------\n");
+                    
+                    try {
+                        SemanticAnalyzer semanticAnalyzer = new SemanticAnalyzer();
+                        semanticAnalyzer.analyze(program);
+                        
+                        ManejadorErrores erroresSemanticos = semanticAnalyzer.getManejadorErrores();
+                        
+                        if (erroresSemanticos.hayErrores()) {
+                            result.append("❌ Errores semánticos encontrados:\n");
+                            for (ErrorSemantico error : erroresSemanticos.getErrores()) {
+                                result.append("   • Línea ").append(error.getLinea()).append(": ").append(error.getMensaje()).append("\n");
+                                erroresTotales.agregarError(error);
+                            }
+                        } else {
+                            result.append("✅ Análisis semántico sin errores\n");
+                        }
+                        
+                        currentProgram = program;
+                        
+                    } catch (Exception semanticError) {
+                        result.append("❌ Error en análisis semántico: ").append(semanticError.getMessage()).append("\n");
+                        erroresTotales.agregarError(0, "Error semántico: " + semanticError.getMessage(), "Semántico");
+                        currentProgram = null;
+                    }
+                }
+                
+                // RESUMEN FINAL
+                result.append("\n📊 RESUMEN FINAL\n");
+                result.append("================\n");
+                
+                if (erroresTotales.hayErrores()) {
+                    result.append("❌ COMPILACIÓN FALLIDA\n");
+                    result.append("Total de errores: ").append(erroresTotales.getCantidadErrores()).append("\n");
+                    runButton.setEnabled(false);
+                    setStatus("Compilación fallida", Color.RED);
+                    resultArea.setForeground(Color.RED);
+                } else {
+                    result.append("✅ COMPILACIÓN EXITOSA\n");
+                    result.append("✅ Código listo para ejecutar\n");
+                    runButton.setEnabled(true);
+                    setStatus("Compilación exitosa", new Color(0, 100, 0));
+                    resultArea.setForeground(new Color(0, 100, 0));
+                }
+                
+                resultArea.setText(result.toString());
+                
+            } catch (Exception ex) {
+                System.err.println("ERROR GENERAL: " + ex.getMessage());
+                ex.printStackTrace();
+                showResult("❌ Error durante el análisis: " + ex.getMessage(), Color.RED);
+                runButton.setEnabled(false);
+                currentProgram = null;
+            }
+        }
 
     private void runCode() {
         if (currentProgram == null) {
@@ -181,43 +310,54 @@ public class AnalizadorGUI1 extends JFrame {
         try {
             setStatus("Ejecutando código...", new Color(0, 100, 0));
             
-            // Redirigir la salida estándar para capturar los prints
+            // Capturar toda la salida del sistema
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            PrintStream ps = new PrintStream(baos);
-            PrintStream oldOut = System.out;
-            System.setOut(ps);
+            PrintStream combinedStream = new PrintStream(baos);
             
-            resultArea.append("\n\n--- EJECUCIÓN ---\n");
+            PrintStream oldOut = System.out;
+            PrintStream oldErr = System.err;
+            
+            System.setOut(combinedStream);
+            System.setErr(combinedStream);
+            
+            StringBuilder executionResult = new StringBuilder();
+            executionResult.append("\n--- EJECUCIÓN ---\n");
             
             long startTime = System.currentTimeMillis();
             
-            // Ejecutar el código con el intérprete
-            Interpreter interpreter = new Interpreter();
-            interpreter.interpret(currentProgram);
-            
-            long executionTime = System.currentTimeMillis();
-            
-            // Restaurar la salida estándar
-            System.out.flush();
-            System.setOut(oldOut);
-            
-            // Mostrar la salida capturada
-            String output = baos.toString();
-            if (!output.isEmpty()) {
-                resultArea.append("Salida:\n" + output);
+            try {
+                Interpreter interpreter = new Interpreter();
+                interpreter.interpret(currentProgram);
+                
+                long executionTime = System.currentTimeMillis() - startTime;
+                
+                // Restaurar streams
+                System.setOut(oldOut);
+                System.setErr(oldErr);
+                
+                String output = baos.toString();
+                if (!output.trim().isEmpty()) {
+                    executionResult.append("Salida del programa:\n");
+                    executionResult.append(output).append("\n");
+                } else {
+                    executionResult.append("El programa no generó salida visible\n");
+                }
+                
+                executionResult.append("✅ Ejecución completada en ").append(executionTime).append("ms");
+                
+                resultArea.append(executionResult.toString());
+                setStatus("Ejecución completada", new Color(0, 100, 0));
+                
+            } catch (Exception ex) {
+                System.setOut(oldOut);
+                System.setErr(oldErr);
+                throw ex;
             }
             
-            resultArea.append("\n✓ Ejecución completada en " + (executionTime - startTime) + "ms");
-            setStatus("Ejecución completada", new Color(0, 100, 0));
-            
         } catch (Exception ex) {
-            // Restaurar salida estándar en caso de error
-            System.setOut(System.out);
-            
             String errorMessage = ex.getMessage();
-            if (errorMessage == null) errorMessage = "Error desconocido durante la ejecución";
-            
-            resultArea.append("\n❌ Error durante la ejecución: " + errorMessage);
+            resultArea.append("\n❌ Error durante la ejecución: " + 
+                (errorMessage != null ? errorMessage : "Error desconocido"));
             setStatus("Error en ejecución", Color.RED);
         }
     }

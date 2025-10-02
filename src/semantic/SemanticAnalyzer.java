@@ -10,8 +10,6 @@ public class SemanticAnalyzer implements ASTVisitor {
     private ManejadorErrores manejadorErrores;
     private String currentFunction;
     private Tipo currentReturnType;
-    private int recursionDepth;
-    private static final int MAX_RECURSION_DEPTH = 500;
     private Map<String, Boolean> analyzedFunctions;
 
     public SemanticAnalyzer() {
@@ -19,7 +17,6 @@ public class SemanticAnalyzer implements ASTVisitor {
         this.manejadorErrores = new ManejadorErrores();
         this.currentFunction = "global";
         this.currentReturnType = Tipo.VOID;
-        this.recursionDepth = 0;
         this.analyzedFunctions = new HashMap<>();
     }
 
@@ -49,10 +46,8 @@ public class SemanticAnalyzer implements ASTVisitor {
         }
     }
 
-    private void checkRecursionDepth() {
-        if (recursionDepth > MAX_RECURSION_DEPTH) {
-            throw new RuntimeException("Profundidad de recursión excedida (" + MAX_RECURSION_DEPTH + ")");
-        }
+    public ManejadorErrores getManejadorErrores() {
+        return manejadorErrores;
     }
 
     @Override
@@ -73,9 +68,6 @@ public class SemanticAnalyzer implements ASTVisitor {
             return;
         }
         analyzedFunctions.put(functionName, true);
-
-        recursionDepth++;
-        checkRecursionDepth();
 
         String previousFunction = currentFunction;
         Tipo previousReturnType = currentReturnType;
@@ -99,7 +91,6 @@ public class SemanticAnalyzer implements ASTVisitor {
         
         currentFunction = previousFunction;
         currentReturnType = previousReturnType;
-        recursionDepth--;
     }
 
     @Override
@@ -169,8 +160,11 @@ public class SemanticAnalyzer implements ASTVisitor {
 
     @Override
     public void visit(BinaryExpression node) {
+        // Solo visitar los operandos, NO tratar de resolver el operador
         node.getLeft().accept(this);
         node.getRight().accept(this);
+        
+        // Aquí podrías agregar verificación de tipos en el futuro
     }
 
     @Override
@@ -209,12 +203,18 @@ public class SemanticAnalyzer implements ASTVisitor {
 
     @Override
     public void visit(ExpressionStatementNode node) {
+        // Solo visitar la expresión
         node.getExpression().accept(this);
     }
 
     @Override
     public void visit(IdentifierNode node) {
         String varName = node.getName();
+        
+        // No verificar operadores o símbolos especiales
+        if (isOperatorOrSpecialSymbol(varName)) {
+            return;
+        }
         
         // Verificar que la variable existe
         Symbol symbol = scopeManager.resolve(varName);
@@ -235,18 +235,7 @@ public class SemanticAnalyzer implements ASTVisitor {
 
     @Override
     public void visit(LiteralNode node) {
-        // No requiere verificación semántica
-    }
-
-    @Override
-    public void visit(TypeNode node) {
-        // No requiere verificación semántica
-    }
-
-    @Override
-    public void visit(WhileNode node) {
-        node.getCondition().accept(this);
-        node.getBody().accept(this);
+        // Los literales no requieren verificación semántica
     }
 
     @Override
@@ -255,7 +244,26 @@ public class SemanticAnalyzer implements ASTVisitor {
         node.getValue().accept(this);
     }
 
-    public ManejadorErrores getManejadorErrores() {
-        return manejadorErrores;
+    @Override
+    public void visit(TypeNode node) {
+        // Los nodos de tipo no requieren verificación semántica
+    }
+
+    @Override
+    public void visit(WhileNode node) {
+        node.getCondition().accept(this);
+        node.getBody().accept(this);
+    }
+
+    // Método auxiliar para identificar operadores y símbolos especiales
+    private boolean isOperatorOrSpecialSymbol(String name) {
+        return name.equals("+") || name.equals("-") || name.equals("*") || 
+               name.equals("/") || name.equals("=") || name.equals("==") ||
+               name.equals("!=") || name.equals("<") || name.equals(">") ||
+               name.equals("<=") || name.equals(">=") || name.equals("&&") ||
+               name.equals("||") || name.equals("!") || name.equals(";") ||
+               name.equals(":") || name.equals(",") || name.equals("(") ||
+               name.equals(")") || name.equals("{") || name.equals("}") ||
+               name.equals("'") || name.equals("\"");
     }
 }
